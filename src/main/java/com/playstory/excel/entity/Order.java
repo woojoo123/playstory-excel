@@ -1,4 +1,4 @@
-package com.playstory.excel.order;
+package com.playstory.excel.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
