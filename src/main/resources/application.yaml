@@ -1,3 +1,21 @@
 spring:
   application:
     name: playstory-excel
+
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3307/playstory?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${DB_USERNAME:playstory}
+    password: ${DB_PASSWORD:playstory}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+app:
+  excel:
+    storage-path: ${EXCEL_STORAGE_PATH:./files}
