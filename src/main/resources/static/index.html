@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playstory Excel Export</title>
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+
+        body {
+            margin: 0;
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 48px 24px;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+        }
+
+        p {
+            margin: 0;
+            color: #6b7280;
+        }
+
+        button,
+        a.download {
+            border: 0;
+            border-radius: 8px;
+            padding: 10px 16px;
+            background: #2563eb;
+            color: #ffffff;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        button:disabled {
+            cursor: wait;
+            opacity: 0.6;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #ffffff;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        th,
+        td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+        }
+
+        th {
+            background: #f9fafb;
+            color: #4b5563;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .status {
+            display: inline-block;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .PENDING {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .PROCESSING {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .DONE {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .FAILED {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .empty,
+        .error {
+            padding: 32px;
+            color: #6b7280;
+            text-align: center;
+        }
+
+        .error {
+            color: #b91c1c;
+        }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <div>
+            <h1>주문 데이터 엑셀 생성</h1>
+            <p>요청된 작업은 백그라운드에서 순서대로 처리됩니다.</p>
+        </div>
+        <button id="create-button" type="button">엑셀 생성 요청</button>
+    </header>
+
+    <div class="table-container">
+        <table>
+            <thead>
+            <tr>
+                <th>작업 ID</th>
+                <th>요청 시각</th>
+                <th>시작 시각</th>
+                <th>완료 시각</th>
+                <th>상태</th>
+                <th>파일 경로</th>
+                <th>다운로드</th>
+            </tr>
+            </thead>
+            <tbody id="job-list">
+            <tr>
+                <td class="empty" colspan="7">작업 목록을 불러오는 중입니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<script>
+    const jobList = document.querySelector("#job-list");
+    const createButton = document.querySelector("#create-button");
+
+    createButton.addEventListener("click", async () => {
+        createButton.disabled = true;
+
+        try {
+            const response = await fetch("/api/excel-jobs", {
+                method: "POST"
+            });
+
+            if (!response.ok) {
+                throw new Error("엑셀 생성 요청에 실패했습니다.");
+            }
+
+            await loadJobs();
+        } catch (error) {
+            alert(error.message);
+        } finally {
+            createButton.disabled = false;
+        }
+    });
+
+    async function loadJobs() {
+        try {
+            const response = await fetch("/api/excel-jobs");
+
+            if (!response.ok) {
+                throw new Error("작업 목록 조회에 실패했습니다.");
+            }
+
+            const jobs = await response.json();
+            renderJobs(jobs);
+        } catch (error) {
+            jobList.innerHTML = `
+                <tr>
+                    <td class="error" colspan="7">${error.message}</td>
+                </tr>
+            `;
+        }
+    }
+
+    function renderJobs(jobs) {
+        if (jobs.length === 0) {
+            jobList.innerHTML = `
+                <tr>
+                    <td class="empty" colspan="7">요청된 작업이 없습니다.</td>
+                </tr>
+            `;
+            return;
+        }
+
+        jobList.innerHTML = jobs.map((job) => `
+            <tr>
+                <td>${job.jobId}</td>
+                <td>${formatDateTime(job.requestedAt)}</td>
+                <td>${formatDateTime(job.startedAt)}</td>
+                <td>${formatDateTime(job.completedAt)}</td>
+                <td><span class="status ${job.status}">${job.status}</span></td>
+                <td>${job.filePath ?? "-"}</td>
+                <td>${renderDownload(job)}</td>
+            </tr>
+        `).join("");
+    }
+
+    function renderDownload(job) {
+        if (job.status !== "DONE") {
+            return "-";
+        }
+
+        return `
+            <a class="download" href="/api/excel-jobs/${job.jobId}/download">
+                다운로드
+            </a>
+        `;
+    }
+
+    function formatDateTime(value) {
+        if (!value) {
+            return "-";
+        }
+
+        return new Date(value).toLocaleString("ko-KR");
+    }
+
+    loadJobs();
+    setInterval(loadJobs, 3000);
+</script>
+</body>
+</html>
