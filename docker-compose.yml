@@ -18,5 +18,31 @@ services:
       retries: 20
       start_period: 10s
 
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/playstory?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_USERNAME: playstory
+      DB_PASSWORD: playstory
+      EXCEL_STORAGE_PATH: /app/files
+    ports:
+      - "8080:8080"
+    volumes:
+      - excel-files:/app/files
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 512M
+
 volumes:
   mysql-data:
+  excel-files:
